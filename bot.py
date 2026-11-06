@@ -397,11 +397,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+
 def main():
     if not BOT_TOKEN:
-        raise SystemExit("BOT_TOKEN topilmadi. .env faylini sozlang.")
+        raise SystemExit("BOT_TOKEN topilmadi.")
+
     if not ADMIN_TELEGRAM_ID.isdigit():
-        raise SystemExit("ADMIN_TELEGRAM_ID .env faylida raqamli Telegram ID bo‘lishi kerak.")
+        raise SystemExit("ADMIN_TELEGRAM_ID noto‘g‘ri.")
+
+    render_url = os.getenv("RENDER_EXTERNAL_URL", "").rstrip("/")
+    port = int(os.getenv("PORT", "10000"))
+
+    if not render_url:
+        raise SystemExit("RENDER_EXTERNAL_URL sozlanmagan.")
 
     init_db()
     app = Application.builder().token(BOT_TOKEN).build()
@@ -423,12 +431,26 @@ def main():
     app.add_handler(CommandHandler("pending", pending))
     app.add_handler(CommandHandler("members", members))
     app.add_handler(CommandHandler("block", block_user))
-    app.add_handler(CallbackQueryHandler(review_application, pattern=r"^(approve|reject):\d+$"))
+    app.add_handler(
+        CallbackQueryHandler(
+            review_application,
+            pattern=r"^(approve|reject):\d+$"
+        )
+    )
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu))
 
-    log.info("Maktab Yordamchisi bot ishga tushmoqda.")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    log.info("Maktab Yordamchisi webhook orqali ishga tushmoqda.")
+
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        url_path=BOT_TOKEN,
+        webhook_url=f"{render_url}/{BOT_TOKEN}",
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=True,
+    )
 
 
 if __name__ == "__main__":
     main()
+
